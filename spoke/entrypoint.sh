@@ -9,6 +9,7 @@ SRV_DIR=${SRV_DIR:-/data/tftpboot}
 CONF_FILE=${CONF_FILE:-/config/dnsmasq.conf}
 DNS_CHECK=${DNS_CHECK:-"False"}
 AMEND_IMAGE=${AMEND_IMAGE:-''}
+COREOS_SOURCE=${COREOS_SOURCE:-"http://${RELEASE}.release.core-os.net/amd64-usr/current"}
 
 # Misc settings
 ERR_LOG=/log/$HOSTNAME/pxe_stderr.log
@@ -40,10 +41,10 @@ get_images() {
     mkdir -p "$CACHE_DIR"
     cd "$CACHE_DIR"
     echo -n "Downloading \"$RELEASE\" channel pxe files..." | tee -a $ERR_LOG
-    wget -nv http://${RELEASE}.release.core-os.net/amd64-usr/current/coreos_production_pxe.vmlinuz 
-    wget -nv http://${RELEASE}.release.core-os.net/amd64-usr/current/coreos_production_pxe.vmlinuz.sig
-    wget -nv http://${RELEASE}.release.core-os.net/amd64-usr/current/coreos_production_pxe_image.cpio.gz 
-    wget -nv http://${RELEASE}.release.core-os.net/amd64-usr/current/coreos_production_pxe_image.cpio.gz.sig 
+    wget -nv $COREOS_SOURCE/coreos_production_pxe.vmlinuz
+    wget -nv $COREOS_SOURCE/coreos_production_pxe.vmlinuz.sig
+    wget -nv $COREOS_SOURCE/coreos_production_pxe_image.cpio.gz
+    wget -nv $COREOS_SOURCE/coreos_production_pxe_image.cpio.gz.sig
     echo "done" | tee -a $ERR_LOG
 
     gpg --import /data/cache/CoreOS_Image_Signing_Key.pem
@@ -147,3 +148,4 @@ echo Starting DHCP+TFTP server... | tee -a $ERR_LOG
 exec dnsmasq \
     --conf-file=$CONF_FILE \
     --no-daemon
+

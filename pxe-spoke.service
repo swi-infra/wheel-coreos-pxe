@@ -1,0 +1,15 @@
+[Unit]
+Description=PXE Server (DHCP+TFTP) - Service part
+After=pxe-hub.service
+Requires=pxe-hub.service
+
+[Service]
+TimeoutStartSec=0
+ExecStartPre=-/usr/bin/docker kill pxe-spoke
+ExecStartPre=/usr/bin/docker pull corfr/coreos-pxe-spoke
+ExecStart=/usr/bin/docker run --name pxe-spoke --net=host --rm --volumes-from=pxe-hub -e REFRESH_IMAGES=False corfr/coreos-pxe-spoke
+ExecStop=/usr/bin/docker stop pxe-spoke
+
+[X-Fleet]
+MachineMetadata=role=master
+
