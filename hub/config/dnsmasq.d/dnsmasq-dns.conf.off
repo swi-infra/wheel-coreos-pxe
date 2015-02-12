@@ -1,0 +1,11 @@
+# DNS
+port=53
+server=8.8.8.8
+server=8.8.4.4
+domain-needed
+bogus-priv
+no-resolv
+no-poll
+no-hosts
+local=/localnet/
+domain=localnet,192.168.0.0/24

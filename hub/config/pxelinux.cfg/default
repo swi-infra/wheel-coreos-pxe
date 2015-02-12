@@ -7,4 +7,4 @@ display boot.msg
 label coreos
     menu default
     kernel coreos_production_pxe.vmlinuz
-    append initrd=coreos_production_pxe_image.cpio.gz rootfstype=btrfs vga=0x318 coreos.autologin sshkey="YOUR_SSH_PUBLIC_KEY_HERE"
+    append initrd=coreos_production_pxe_image.cpio.gz rootfstype=btrfs coreos.autologin sshkey="ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAy4b4mjWHuN8Ckb9RL7/JQloGSwo5AQQTi2XgLJb1SOZSYggTro4GJbLi42+sUieCxNBWanpuUTuSdde7bcreSSp/S1m3ldtYeA/L+wfQErKsbJwhMtCWU2oU9WZKPUXkYVCPhe9dLnAbGc792RwFrsJTtWudqNC9dLqNuSAvZWiYuMzurWit1uyvFcR6eyNNSRa73riA5c//LHOA9PmRZup3QZUDfDJ8+buLzXfXfG9dzB0s9KAhNBZFYJb4UvpF2Vb2ArIZ2la9XNKIcMrSviLJCKn3tJh7CUyg4WwwdSZWMuBuYAcYbJDsmBskHfO22CATjqCfprm/LnceIzK6bw== broussel@FRILM-ED-14177" cloud-config=http://10.1.11.52/coreos/node.yml

@@ -11,5 +11,3 @@ pxe:
     volumes_from:
         - hub
     net: "host"
-    environment:
-      AMEND_IMAGE: /data/oem.tar
