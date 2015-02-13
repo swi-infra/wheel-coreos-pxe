@@ -11,10 +11,36 @@ DNS_CHECK=${DNS_CHECK:-"False"}
 AMEND_IMAGE=${AMEND_IMAGE:-''}
 COREOS_SOURCE=${COREOS_SOURCE:-"http://${RELEASE}.release.core-os.net/amd64-usr/current"}
 
+# Networking
+PRIVATE_IP=${PRIVATE_IP:-"192.168.0.1"}
+ROUTE_TRAFFIC=${ROUTE_TRAFFIC:-"False"}
+
+# DNS
+DNS_SERVICE=${DNS_SERVICE:-"False"}
+
+# DHCP
+DHCP_SERVICE=${DHCP_SERVICE:-"True"}
+DHCP_RANGE_START=${DHCP_RANGE_START:-100}
+DHCP_RANGE_END=${DHCP_RANGE_END:-200}
+DHCP_DOMAIN=${DHCP_DOMAIN:-""}
+DHCP_NTP_SERVER=${DHCP_NTP_SERVER:-"0.0.0.0"}
+DHCP_DNS_SERVER_1=${DHCP_DNS_SERVER_1:-"8.8.8.8"}
+DHCP_DNS_SERVER_2=${DHCP_DNS_SERVER_2:-"8.8.4.4"}
+DHCP_LEASE_TIME=${DHCP_LEASE_TIME:-"24h"}
+DHCP_GATEWAY=${DHCP_GATEWAY:-$PRIVATE_IP}
+
+# TFTP
+TFTP_SERVICE=${TFTP_SERVICE:-"True"}
+
+# CoreOS
+COREOS_SSH_KEY=${COREOS_SSH_KEY:-""}
+COREOS_CLOUD_CONFIG=${COREOS_CLOUD_CONFIG:-""}
+COREOS_AUTO_LOGIN=${COREOS_AUTO_LOGIN:-"True"}
+COREOS_KERNEL_CMDLINE=${COREOS_KERNEL_CMDLINE:-"rootfstype=btrfs"}
+
 # Misc settings
 ERR_LOG=/log/$HOSTNAME/pxe_stderr.log
 CACHE_DIR=/data/cache/$RELEASE
-
 
 restart_message() {
     echo "Container restart on $(date)."
@@ -31,9 +57,95 @@ get_signing_key() {
 
 prep_dirs() {
     mkdir -p $SRV_DIR
-    ln -sf /config/pxelinux.cfg $SRV_DIR/pxelinux.cfg
     cp /usr/lib/syslinux/pxelinux.0 $SRV_DIR
     mkdir -p /data/cache
+}
+
+copy_config() {
+    SRC=$1
+    DST=$2
+
+    echo "Config: Copying $SRC"
+    cp $1 $2
+}
+
+configure_file() {
+    FILE=$1
+    KEY=$2
+
+    echo "Config: $FILE $KEY=${!KEY}"
+    sed -i "s/#$KEY#/${!KEY}/g" $FILE
+}
+
+# Generates /data/config
+prep_configs() {
+
+    # dnsmasq
+    rm -rf /data/config/dnsmasq.d
+    mkdir -p /data/config/dnsmasq.d
+
+    # Net
+    copy_config /config/dnsmasq.tmpl/dnsmasq-net.conf /data/config/dnsmasq.d
+
+    if [ -n "$DHCP_DOMAIN" ]; then
+        echo "domain=$DHCP_DOMAIN" >> /data/config/dnsmasq.d/dnsmasq-net.conf
+    fi
+
+    echo "listen-address=$PRIVATE_IP" >> /data/config/dnsmasq.d/dnsmasq-net.conf
+
+    # DNS
+    if [[ "$DNS_SERVICE" == "True" ]]; then
+        copy_config /config/dnsmasq.tmpl/dnsmasq-dns.conf /data/config/dnsmasq.d
+    else
+        copy_config /config/dnsmasq.tmpl/dnsmasq-dns-off.conf /data/config/dnsmasq.d
+    fi
+
+    # DHCP
+    if [[ "$DHCP_SERVICE" == "True" ]]; then
+        copy_config /config/dnsmasq.tmpl/dnsmasq-dhcp.conf /data/config/dnsmasq.d
+
+        DHCP_IP_RANGE_START=$(echo $PRIVATE_IP | sed "s/\.[0-9]*$/.$DHCP_RANGE_START/g")
+        DHCP_IP_RANGE_END=$(echo $PRIVATE_IP | sed "s/\.[0-9]*$/.$DHCP_RANGE_END/g")
+
+        # Configure
+        configure_file /data/config/dnsmasq.d/dnsmasq-dhcp.conf DHCP_IP_RANGE_START
+        configure_file /data/config/dnsmasq.d/dnsmasq-dhcp.conf DHCP_IP_RANGE_END
+        configure_file /data/config/dnsmasq.d/dnsmasq-dhcp.conf DHCP_LEASE_TIME
+        configure_file /data/config/dnsmasq.d/dnsmasq-dhcp.conf DHCP_GATEWAY
+        configure_file /data/config/dnsmasq.d/dnsmasq-dhcp.conf DHCP_DNS_SERVER_1
+        configure_file /data/config/dnsmasq.d/dnsmasq-dhcp.conf DHCP_DNS_SERVER_2
+
+        if [ -n "$DHCP_DOMAIN" ]; then
+            echo "dhcp-option=119,$DHCP_DOMAIN" >> /data/config/dnsmasq.d/dnsmasq-dhcp.conf
+        fi
+
+        if [ -n "$DHCP_NTP_SERVER" ]; then
+            echo "dhcp-option=42,$DHCP_NTP_SERVER" >> /data/config/dnsmasq.d/dnsmasq-dhcp.conf
+        fi
+    fi
+
+    # TFTP
+    if [[ "$TFTP_SERVICE" == "True" ]]; then
+        copy_config /config/dnsmasq.tmpl/dnsmasq-tftp.conf /data/config/dnsmasq.d
+    fi
+
+    # PXE boot
+    CMDLINE=$COREOS_KERNEL_CMDLINE
+    if [[ "$COREOS_AUTO_LOGIN" == "True" ]]; then
+        CMDLINE="$CMDLINE coreos.autologin"
+    fi
+    if [ -n "$COREOS_CLOUD_CONFIG" ]; then
+        CMDLINE="$CMDLINE cloud-config-url=$COREOS_CLOUD_CONFIG"
+    fi
+    if [ -n "$COREOS_SSH_KEY" ]; then
+        CMDLINE="$CMDLINE sshkey=\"$COREOS_SSH_KEY\""
+    fi
+
+    echo "PXE kernel command line: '$CMDLINE'"
+    rm -rf $SRV_DIR/pxelinux.cfg
+    mkdir -p $SRV_DIR/pxelinux.cfg
+    copy_config /config/pxelinux.cfg/default $SRV_DIR/pxelinux.cfg
+    sed -i "s^gz^gz $CMDLINE^g" $SRV_DIR/pxelinux.cfg/default
 }
 
 get_images() {
@@ -142,6 +254,7 @@ else
     cache_check
 fi
 
+prep_configs
 select_image
 apply_permissions
 echo Starting DHCP+TFTP server... | tee -a $ERR_LOG

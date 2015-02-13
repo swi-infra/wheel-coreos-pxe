@@ -1,2 +1,4 @@
 FROM            radial/hub-base:latest
-MAINTAINER      radial@brianclements.net
+
+# Original author radial@brianclements.net
+MAINTAINER      Bertrand Roussel <broussel@sierrawireless.com>

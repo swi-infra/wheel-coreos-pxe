@@ -1,7 +1,9 @@
 # Spoke Dockerfile for pxe
 
 FROM            radial/spoke-base:latest
-MAINTAINER      Brian Clements <radial@brianclements.net>
+
+# Original author radial@brianclements.net
+MAINTAINER      Bertrand Roussel <broussel@sierrawireless.com>
 
 # Install packages
 ENV             DEBIAN_FRONTEND noninteractive
