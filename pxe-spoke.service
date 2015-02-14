@@ -6,8 +6,9 @@ Requires=pxe-hub.service
 [Service]
 TimeoutStartSec=0
 ExecStartPre=-/usr/bin/docker kill pxe-spoke
+ExecStartPre=-/usr/bin/docker rm pxe-spoke
 ExecStartPre=/usr/bin/docker pull corfr/coreos-pxe-spoke
-ExecStart=/usr/bin/docker run --name pxe-spoke --net=host --rm --volumes-from=pxe-hub --env-file=/etc/environment corfr/coreos-pxe-spoke
+ExecStart=/usr/bin/docker run --name pxe-spoke --net=host --rm --volumes-from=pxe-hub --env-file=/etc/environment --privileged corfr/coreos-pxe-spoke
 ExecStop=/usr/bin/docker stop pxe-spoke
 
 [X-Fleet]

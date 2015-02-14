@@ -148,6 +148,13 @@ prep_configs() {
     sed -i "s^gz^gz $CMDLINE^g" $SRV_DIR/pxelinux.cfg/default
 }
 
+prep_network() {
+    if [[ "$ROUTE_TRAFFIC" == "True" ]]; then
+        IP_SUBNET="$(echo $PRIVATE_IP | sed "s/\.[0-9]*$/.0/g")/24"
+        sudo /sbin/iptables -t nat -A POSTROUTING -s $IP_SUBNET -j MASQUERADE
+    fi
+}
+
 get_images() {
     rm -rf "$CACHE_DIR"
     mkdir -p "$CACHE_DIR"
@@ -255,6 +262,7 @@ else
 fi
 
 prep_configs
+prep_network
 select_image
 apply_permissions
 echo Starting DHCP+TFTP server... | tee -a $ERR_LOG
