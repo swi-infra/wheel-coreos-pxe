@@ -9,7 +9,7 @@ SRV_DIR=${SRV_DIR:-/data/tftpboot}
 CONF_FILE=${CONF_FILE:-/config/dnsmasq.conf}
 DNS_CHECK=${DNS_CHECK:-"False"}
 AMEND_IMAGE=${AMEND_IMAGE:-''}
-COREOS_SOURCE=${COREOS_SOURCE:-"http://${RELEASE}.release.core-os.net/amd64-usr/current"}
+SIG_CHECKING=${SIG_CHECKING:-"True"}
 
 # Networking
 PRIVATE_IP=${PRIVATE_IP:-"192.168.0.1"}
@@ -33,14 +33,19 @@ DHCP_GATEWAY=${DHCP_GATEWAY:-$PRIVATE_IP}
 TFTP_SERVICE=${TFTP_SERVICE:-"True"}
 
 # CoreOS
+COREOS_VERSION=${COREOS_VERSION:-current}
+COREOS_SOURCE=${COREOS_SOURCE:-http://${RELEASE}.release.core-os.net/amd64-usr/${COREOS_VERSION}}
 COREOS_SSH_KEY=${COREOS_SSH_KEY:-""}
 COREOS_CLOUD_CONFIG=${COREOS_CLOUD_CONFIG:-""}
 COREOS_AUTO_LOGIN=${COREOS_AUTO_LOGIN:-"True"}
 COREOS_KERNEL_CMDLINE=${COREOS_KERNEL_CMDLINE:-"rootfstype=btrfs"}
+COREOS_KERNEL_NAME=${COREOS_KERNEL_NAME:-'coreos_production_pxe.vmlinuz'}
+COREOS_INITRD_NAME=${COREOS_INITRD_NAME:-'coreos_production_pxe_image.cpio.gz'}
 
 # Misc settings
 ERR_LOG=/log/$HOSTNAME/pxe_stderr.log
 CACHE_DIR=/data/cache/$RELEASE
+IMAGE_DIR=${IMAGE_DIR:-$CACHE_DIR}
 
 restart_message() {
     echo "Container restart on $(date)."
@@ -160,27 +165,34 @@ get_images() {
     mkdir -p "$CACHE_DIR"
     cd "$CACHE_DIR"
     echo -n "Downloading \"$RELEASE\" channel pxe files..." | tee -a $ERR_LOG
-    wget -nv $COREOS_SOURCE/coreos_production_pxe.vmlinuz
-    wget -nv $COREOS_SOURCE/coreos_production_pxe.vmlinuz.sig
-    wget -nv $COREOS_SOURCE/coreos_production_pxe_image.cpio.gz
-    wget -nv $COREOS_SOURCE/coreos_production_pxe_image.cpio.gz.sig
+    wget -nv $COREOS_SOURCE/$COREOS_KERNEL_NAME
+    wget -nv $COREOS_SOURCE/$COREOS_INITRD_NAME
+    echo "done" | tee -a $ERR_LOG
+
+    if [[ "$SIG_CHECKING" != "True" ]]; then
+        return
+    fi
+
+    echo -n "Downloading \"$RELEASE\" channel pxe signatures..." | tee -a $ERR_LOG
+    wget -nv $COREOS_SOURCE/${COREOS_KERNEL_NAME}.sig
+    wget -nv $COREOS_SOURCE/${COREOS_INITRD_NAME}.sig
     echo "done" | tee -a $ERR_LOG
 
     gpg --import /data/cache/CoreOS_Image_Signing_Key.pem
-    if ! $(gpg --verify coreos_production_pxe.vmlinuz.sig && gpg --verify coreos_production_pxe_image.cpio.gz.sig); then
+    if ! gpg --verify ${COREOS_KERNEL_NAME}.sig && gpg --verify ${COREOS_INITRD_NAME}.sig; then
         echo "Image verification failed. Aborting container start." | tee -a $ERR_LOG
         exit 1
     fi
 }
 
 apply_permissions() {
-    chmod -R 777 $SRV_DIR $CACHE_DIR
-    chown -R nobody: $SRV_DIR $CACHE_DIR
+    chmod -R 777 $SRV_DIR $CACHE_DIR $IMAGE_DIR
+    chown -R nobody: $SRV_DIR $CACHE_DIR $IMAGE_DIR
 }
 
 select_image() {
-    ln -sf $CACHE_DIR/coreos_production_pxe.vmlinuz $SRV_DIR/coreos_production_pxe.vmlinuz
-    ln -sf $CACHE_DIR/coreos_production_pxe_image.cpio.gz $SRV_DIR/coreos_production_pxe_image.cpio.gz
+    ln -sf $IMAGE_DIR/$COREOS_KERNEL_NAME $SRV_DIR/$COREOS_KERNEL_NAME
+    ln -sf $IMAGE_DIR/$COREOS_INITRD_NAME $SRV_DIR/$COREOS_INITRD_NAME
 }
 
 cache_check() {
