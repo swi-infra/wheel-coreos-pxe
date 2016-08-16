@@ -186,6 +186,7 @@ get_images() {
 }
 
 apply_permissions() {
+    mkdir -p "$CACHE_DIR"
     chmod -R 777 $SRV_DIR $CACHE_DIR $IMAGE_DIR
     chown -R nobody: $SRV_DIR $CACHE_DIR $IMAGE_DIR
 }
